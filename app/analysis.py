@@ -33,6 +33,10 @@ def _group_stats(rows: list[ExperimentRow], metric_name: str) -> dict[str, Group
     return stats
 
 
+def _rows_for_segment(rows: list[ExperimentRow], segment: str) -> list[ExperimentRow]:
+    return [row for row in rows if row.segment == segment]
+
+
 def _z_score(control: GroupStats, treatment: GroupStats) -> float:
     difference = treatment.mean - control.mean
     standard_error = math.sqrt(
@@ -81,8 +85,11 @@ def _apply_cuped(rows: list[ExperimentRow]) -> list[ExperimentRow]:
             ExperimentRow(
                 user_id=row.user_id,
                 group=row.group,
+                segment=row.segment,
                 pre_metric=row.pre_metric,
                 outcome_metric=row.outcome_metric - theta * (row.pre_metric - pre_mean),
+                guardrail_contact_rate=row.guardrail_contact_rate,
+                guardrail_latency_ms=row.guardrail_latency_ms,
             )
         )
     return adjusted_rows
@@ -152,6 +159,68 @@ def _required_users_per_group(
     return math.ceil((((z_alpha + z_beta) ** 2) * variance_sum) / (effect ** 2))
 
 
+def _guardrail_metrics(rows: list[ExperimentRow]) -> dict[str, object]:
+    thresholds = {
+        "contact_rate_increase_max": 0.01,
+        "latency_increase_ms_max": 8.0,
+    }
+    contact_stats = _group_stats(rows, "guardrail_contact_rate")
+    latency_stats = _group_stats(rows, "guardrail_latency_ms")
+
+    contact_delta = contact_stats["treatment"].mean - contact_stats["control"].mean
+    latency_delta = latency_stats["treatment"].mean - latency_stats["control"].mean
+
+    contact_status = "pass" if contact_delta <= thresholds["contact_rate_increase_max"] else "fail"
+    latency_status = "pass" if latency_delta <= thresholds["latency_increase_ms_max"] else "fail"
+
+    overall_status = "pass" if contact_status == "pass" and latency_status == "pass" else "fail"
+
+    return {
+        "overall_status": overall_status,
+        "metrics": {
+            "support_contact_rate": {
+                "control_mean": round(contact_stats["control"].mean, 4),
+                "treatment_mean": round(contact_stats["treatment"].mean, 4),
+                "delta": round(contact_delta, 4),
+                "max_allowed_increase": thresholds["contact_rate_increase_max"],
+                "status": contact_status,
+                "direction": "lower_is_better",
+            },
+            "p95_checkout_latency_ms": {
+                "control_mean": round(latency_stats["control"].mean, 4),
+                "treatment_mean": round(latency_stats["treatment"].mean, 4),
+                "delta": round(latency_delta, 4),
+                "max_allowed_increase": thresholds["latency_increase_ms_max"],
+                "status": latency_status,
+                "direction": "lower_is_better",
+            },
+        },
+    }
+
+
+def _segment_breakdowns(rows: list[ExperimentRow]) -> list[dict[str, object]]:
+    breakdowns: list[dict[str, object]] = []
+    for segment in sorted({row.segment for row in rows}):
+        segment_rows = _rows_for_segment(rows, segment)
+        raw_stats = _group_stats(segment_rows, "outcome_metric")
+        cuped_rows = _apply_cuped(segment_rows)
+        cuped_stats = _group_stats(cuped_rows, "outcome_metric")
+        cuped_lift = cuped_stats["treatment"].mean - cuped_stats["control"].mean
+        cuped_z = _z_score(cuped_stats["control"], cuped_stats["treatment"])
+        cuped_p_value = _two_sided_p_value(cuped_z)
+        breakdowns.append(
+            {
+                "segment": segment,
+                "users": len(segment_rows),
+                "raw_lift": round(raw_stats["treatment"].mean - raw_stats["control"].mean, 4),
+                "cuped_lift": round(cuped_lift, 4),
+                "cuped_p_value": round(cuped_p_value, 6),
+                "recommendation": "ship_treatment" if cuped_p_value < 0.05 and cuped_lift > 0 else "hold",
+            }
+        )
+    return breakdowns
+
+
 def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
     alpha = 0.05
     target_power = 0.8
@@ -186,8 +255,12 @@ def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
         alpha=alpha,
         target_power=target_power,
     )
-
-    recommendation = "ship_treatment" if cuped_p_value < 0.05 and cuped_lift > 0 else "hold"
+    guardrails = _guardrail_metrics(rows)
+    recommendation = (
+        "ship_treatment"
+        if cuped_p_value < 0.05 and cuped_lift > 0 and guardrails["overall_status"] == "pass"
+        else "hold"
+    )
 
     return {
         "summary": {
@@ -199,6 +272,7 @@ def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
             "cuped_variance_reduction": round(cuped_variance_reduction, 4),
             "minimum_detectable_effect": round(minimum_detectable_effect, 4),
             "observed_power": round(observed_power, 4),
+            "guardrail_status": guardrails["overall_status"],
             "recommendation": recommendation,
         },
         "group_stats": {
@@ -219,6 +293,8 @@ def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
             "required_users_per_group_at_observed_effect": required_users_per_group,
             "current_users_per_group": cuped_stats["control"].users,
         },
+        "guardrails": guardrails,
+        "segment_breakdowns": _segment_breakdowns(rows),
         "sequential_snapshots": _sequential_snapshots(rows),
     }
 

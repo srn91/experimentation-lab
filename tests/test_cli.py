@@ -30,7 +30,10 @@ def test_cli_report_writes_json(monkeypatch, tmp_path, capsys) -> None:
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["summary"]["users"] == 4000
+    assert payload["summary"]["guardrail_status"] == "pass"
     assert payload["summary"]["recommendation"] == "ship_treatment"
+    assert len(payload["segment_breakdowns"]) == 3
     assert report_path.exists()
     stored_report = json.loads(report_path.read_text(encoding="utf-8"))
     assert stored_report["summary"]["cuped_variance_reduction"] == payload["summary"]["cuped_variance_reduction"]
+    assert stored_report["guardrails"]["overall_status"] == payload["guardrails"]["overall_status"]

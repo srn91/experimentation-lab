@@ -22,12 +22,16 @@ def test_health_report_summary_endpoints() -> None:
     assert report.status_code == 200
     report_payload = report.json()
     assert report_payload["summary"]["users"] == 4000
+    assert report_payload["summary"]["guardrail_status"] == "pass"
     assert report_payload["summary"]["recommendation"] == "ship_treatment"
+    assert report_payload["guardrails"]["metrics"]["support_contact_rate"]["status"] == "pass"
+    assert len(report_payload["segment_breakdowns"]) == 3
 
     summary = client.get("/summary")
     assert summary.status_code == 200
     summary_payload = summary.json()
     assert summary_payload["users"] == 4000
+    assert summary_payload["guardrail_status"] == "pass"
     assert summary_payload["recommendation"] == "ship_treatment"
 
 

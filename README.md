@@ -1,6 +1,6 @@
 # experimentation-lab
 
-A local-first experimentation decision lab that simulates A/B test assignments, quantifies treatment lift, applies CUPED for variance reduction, snapshots sequential readouts, and produces a decision-ready report.
+A local-first experimentation decision lab that simulates A/B test assignments, quantifies treatment lift, applies CUPED for variance reduction, checks rollout guardrails, breaks results down by customer segment, and produces a decision-ready report.
 
 ## Problem
 
@@ -13,6 +13,8 @@ The V1 implementation is intentionally lightweight and transparent:
 - a deterministic simulator creates control and treatment assignments with a correlated pre-period metric
 - analysis computes raw treatment lift and a two-sample z-style inference path
 - CUPED uses the pre-period signal to reduce variance before recomputing lift
+- guardrail analysis checks support-contact rate and checkout latency before recommending rollout
+- segment breakdowns show whether lift is consistent for new users, repeat buyers, and high-value cohorts
 - sequential snapshots show how evidence changes at 25%, 50%, 75%, and 100% of the run
 - power analysis estimates the minimum detectable effect and whether the current run is over- or under-powered
 - a CLI writes both the simulated assignment file and the decision report so the repo is reproducible without a notebook
@@ -22,7 +24,7 @@ The V1 implementation is intentionally lightweight and transparent:
 This repo is easiest to understand when the code is read as a narrow decision pipeline:
 
 1. `app/simulation.py` creates the experiment rows and writes the assignment CSV.
-2. `app/analysis.py` computes lift, CUPED adjustment, sequential snapshots, and the final ship/hold recommendation.
+2. `app/analysis.py` computes lift, CUPED adjustment, guardrails, segment breakdowns, sequential snapshots, and the final ship/hold recommendation.
 3. `app/models.py` defines the experiment record and aggregate statistics.
 4. `app/cli.py` exposes `simulate` and `report` entry points so the workflow can run from the terminal.
 
@@ -33,6 +35,7 @@ The tracking approach is deliberately file-based so the experiment state is repr
 - `app/config.py` holds the run parameters such as seed, output paths, and user count.
 - `generated/experiment_assignments.csv` is the raw simulated evidence trail.
 - `generated/decision_report.json` is the canonical experiment readout.
+- the report now carries `guardrails` and `segment_breakdowns` sections alongside the summary.
 - the sequential snapshots in the report preserve the progression from 25% to 100% of the sample.
 - the report now carries a `power_analysis` block so the run can answer both "did we detect lift?" and "could we have detected the lift we cared about?"
 - any future warehouse integration should preserve the same contract: fixed seed or run id, immutable assignment file, and a single decision artifact per run.
@@ -53,7 +56,7 @@ flowchart LR
 This V1 makes three deliberate tradeoffs:
 
 1. The simulator uses deterministic pseudo-random generation instead of a real event warehouse so the full experiment story is runnable offline.
-2. The analysis focuses on one primary metric rather than a full experiment platform with guardrails, segment drilldowns, and dashboards.
+2. The analysis focuses on one primary metric plus two rollout guardrails rather than a full experiment platform with many outcome families and dashboarding.
 3. The reporting path is CLI plus JSON rather than Streamlit because reproducibility and clean verification matter more than UI at this stage.
 
 ## Repo Layout
@@ -112,6 +115,13 @@ The service listens on `PORT` when Render sets it, and falls back to `8000` loca
 - `GET /report`
 - `GET /summary`
 
+`GET /report` now includes:
+
+- summary lift and recommendation
+- guardrail metrics for support contact rate and checkout latency
+- customer-segment breakdowns for `new_user`, `repeat_buyer`, and `high_value`
+- power analysis and sequential snapshots
+
 If `generated/decision_report.json` already exists, the service serves that artifact directly. Otherwise it recomputes the report in memory from the deterministic simulator without mutating the repo.
 
 ### Render Deploy Notes
@@ -152,6 +162,8 @@ The V1 repo currently verifies:
 
 - balanced deterministic assignment into control and treatment
 - CUPED variance reduction over the raw outcome metric
+- rollout guardrails stay within the configured thresholds
+- segment-level lift remains positive across all three customer cohorts
 - a full sequential readout at 25%, 50%, 75%, and 100% of the experiment
 - a recommendation that only ships the treatment when the CUPED-adjusted signal is positive and statistically strong
 
@@ -167,8 +179,11 @@ Current expected report snapshot:
 - users: `4000`
 - raw lift: `6.148`
 - CUPED lift: `5.913`
-- CUPED variance reduction: `0.5391`
-- minimum detectable effect: `1.0673`
+- CUPED variance reduction: `0.514`
+- minimum detectable effect: `1.1099`
+- guardrail status: `pass`
+- support contact rate delta: `-0.009`
+- checkout latency delta: `4.068`
 - observed power: `1.0`
 - recommendation: `ship_treatment`
 
@@ -187,6 +202,8 @@ The current V1 supports:
 - deterministic experiment simulation for 4,000 users
 - raw treatment vs control lift estimation
 - CUPED adjustment using the pre-period metric
+- rollout guardrail evaluation for support-contact rate and checkout latency
+- segment breakdowns for new-user, repeat-buyer, and high-value cohorts
 - sequential evidence snapshots across the run
 - power analysis with minimum detectable effect estimation
 - decision-ready JSON output for stakeholder review
@@ -195,8 +212,7 @@ The current V1 supports:
 
 Possible follow-on work outside the current shipped scope:
 
-1. support guardrail metrics and segment breakdowns
-2. add false-positive controls for repeated sequential peeking
-3. connect the analysis path to a warehouse-backed input table
-4. produce a lightweight stakeholder HTML report on top of the JSON output
-5. compare planned MDE against observed effect by launch tier or experiment class
+1. add false-positive controls for repeated sequential peeking
+2. connect the analysis path to a warehouse-backed input table
+3. produce a lightweight stakeholder HTML report on top of the JSON output
+4. compare planned MDE against observed effect by launch tier or experiment class
