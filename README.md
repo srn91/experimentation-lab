@@ -191,9 +191,9 @@ The current V1 supports:
 - power analysis with minimum detectable effect estimation
 - decision-ready JSON output for stakeholder review
 
-## Next Steps
+## Future Expansion
 
-Realistic next follow-up work:
+Possible follow-on work outside the current shipped scope:
 
 1. support guardrail metrics and segment breakdowns
 2. add false-positive controls for repeated sequential peeking
