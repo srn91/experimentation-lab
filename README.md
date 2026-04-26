@@ -8,7 +8,7 @@ Many experiment demos only show a p-value at the end of a notebook. Real product
 
 ## Architecture
 
-The V1 implementation is intentionally lightweight and transparent:
+The implementation is intentionally lightweight and transparent:
 
 - a deterministic simulator creates control and treatment assignments with a correlated pre-period metric
 - analysis computes raw treatment lift and a two-sample z-style inference path
@@ -53,7 +53,7 @@ flowchart LR
 
 ## Tradeoffs
 
-This V1 makes three deliberate tradeoffs:
+This implementation makes three deliberate tradeoffs:
 
 1. The simulator uses deterministic pseudo-random generation instead of a real event warehouse so the full experiment story is runnable offline.
 2. The analysis focuses on one primary metric plus two rollout guardrails rather than a full experiment platform with many outcome families and dashboarding.
@@ -131,7 +131,7 @@ Render can deploy this repo as a Python web service with:
 - build command: `python3 -m pip install -r requirements.txt`
 - start command: `make serve`
 
-Before deployment, run `make report` once so the generated artifact exists in the repo snapshot. The live API is read-only and is meant to surface the existing experiment summary and full report for reviewers.
+Before deployment, run `make report` once so the generated artifact exists in the repo snapshot. The live API is read-only and serves the existing experiment summary and full report.
 
 Render deploys the latest pushed Git commit from `main`, so any local-only changes must be pushed before a new deploy can use them.
 
@@ -158,7 +158,7 @@ make verify
 
 ## Validation
 
-The V1 repo currently verifies:
+The repo currently verifies:
 
 - balanced deterministic assignment into control and treatment
 - CUPED variance reduction over the raw outcome metric
@@ -167,7 +167,7 @@ The V1 repo currently verifies:
 - a full sequential readout at 25%, 50%, 75%, and 100% of the experiment
 - a recommendation that only ships the treatment when the CUPED-adjusted signal is positive and statistically strong
 
-This is the operational story a reviewer should understand:
+This is the operational story of the service:
 
 - the experiment is reproducible because the simulator seed is fixed
 - the report is decision-oriented, not notebook-oriented
@@ -197,7 +197,7 @@ Local quality gates:
 
 ## Current Capabilities
 
-The current V1 supports:
+The current implementation supports:
 
 - deterministic experiment simulation for 4,000 users
 - raw treatment vs control lift estimation
