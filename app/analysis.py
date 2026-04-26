@@ -8,10 +8,14 @@ from app.models import ExperimentRow, GroupStats
 
 
 def _mean(values: list[float]) -> float:
+    if not values:
+        raise ValueError("expected at least one value")
     return sum(values) / len(values)
 
 
 def _variance(values: list[float], mean: float) -> float:
+    if len(values) < 2:
+        raise ValueError("expected at least two values for variance")
     return sum((value - mean) ** 2 for value in values) / (len(values) - 1)
 
 
@@ -33,6 +37,8 @@ def _z_score(control: GroupStats, treatment: GroupStats) -> float:
     standard_error = math.sqrt(
         (control.variance / control.users) + (treatment.variance / treatment.users)
     )
+    if standard_error == 0:
+        raise ValueError("standard error is zero; cannot compute z-score")
     return difference / standard_error
 
 
@@ -45,6 +51,8 @@ def _two_sided_p_value(z_score: float) -> float:
 
 
 def _cuped_theta(rows: list[ExperimentRow]) -> float:
+    if len(rows) < 2:
+        raise ValueError("expected at least two rows for CUPED")
     pre_values = [row.pre_metric for row in rows]
     outcome_values = [row.outcome_metric for row in rows]
     pre_mean = _mean(pre_values)
@@ -54,6 +62,8 @@ def _cuped_theta(rows: list[ExperimentRow]) -> float:
         for pre_value, outcome_value in zip(pre_values, outcome_values, strict=True)
     ) / (len(rows) - 1)
     pre_variance = _variance(pre_values, pre_mean)
+    if pre_variance == 0:
+        raise ValueError("pre-period variance is zero; CUPED is undefined")
     return covariance / pre_variance
 
 
@@ -143,4 +153,3 @@ def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
 def write_report(report: dict[str, object], destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(report, indent=2), encoding="utf-8")
-

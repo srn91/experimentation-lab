@@ -55,7 +55,8 @@ experimentation-lab/
 ### Install Dependencies
 
 ```bash
-cd /Users/sathwikraonadipelli/Desktop/RESUMES/projects/experimentation-lab
+git clone git@github.com:srn91/experimentation-lab.git
+cd experimentation-lab
 python3 -m pip install -r requirements.txt
 ```
 

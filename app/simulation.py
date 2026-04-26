@@ -8,13 +8,13 @@ from app.models import ExperimentRow
 
 
 def simulate_rows(seed: int = 20260426, users: int = 4000) -> list[ExperimentRow]:
-    random.seed(seed)
+    generator = random.Random(seed)
     rows: list[ExperimentRow] = []
     for index in range(users):
         user_id = f"user_{index:04d}"
-        pre_metric = max(0.0, random.gauss(100.0, 18.0))
+        pre_metric = max(0.0, generator.gauss(100.0, 18.0))
         group = "treatment" if index % 2 else "control"
-        baseline_noise = random.gauss(0.0, 12.0)
+        baseline_noise = generator.gauss(0.0, 12.0)
         treatment_effect = 6.5 if group == "treatment" else 0.0
         outcome_metric = max(0.0, (0.72 * pre_metric) + 18.0 + treatment_effect + baseline_noise)
         rows.append(
@@ -35,4 +35,3 @@ def write_rows(rows: list[ExperimentRow], destination: Path) -> None:
         writer.writerow(["user_id", "group", "pre_metric", "outcome_metric"])
         for row in rows:
             writer.writerow([row.user_id, row.group, row.pre_metric, row.outcome_metric])
-
