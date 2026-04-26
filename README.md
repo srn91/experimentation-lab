@@ -47,7 +47,6 @@ experimentation-lab/
 │   └── simulation.py
 ├── generated/
 ├── tests/
-└── PROJECT_CHECKLIST.md
 ```
 
 ## Run Steps
@@ -55,7 +54,7 @@ experimentation-lab/
 ### Install Dependencies
 
 ```bash
-git clone git@github.com:srn91/experimentation-lab.git
+git clone https://github.com/srn91/experimentation-lab.git
 cd experimentation-lab
 python3 -m pip install -r requirements.txt
 ```
