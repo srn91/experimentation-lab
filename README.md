@@ -14,6 +14,7 @@ The V1 implementation is intentionally lightweight and transparent:
 - analysis computes raw treatment lift and a two-sample z-style inference path
 - CUPED uses the pre-period signal to reduce variance before recomputing lift
 - sequential snapshots show how evidence changes at 25%, 50%, 75%, and 100% of the run
+- power analysis estimates the minimum detectable effect and whether the current run is over- or under-powered
 - a CLI writes both the simulated assignment file and the decision report so the repo is reproducible without a notebook
 
 ## Module Map
@@ -33,6 +34,7 @@ The tracking approach is deliberately file-based so the experiment state is repr
 - `generated/experiment_assignments.csv` is the raw simulated evidence trail.
 - `generated/decision_report.json` is the canonical experiment readout.
 - the sequential snapshots in the report preserve the progression from 25% to 100% of the sample.
+- the report now carries a `power_analysis` block so the run can answer both "did we detect lift?" and "could we have detected the lift we cared about?"
 - any future warehouse integration should preserve the same contract: fixed seed or run id, immutable assignment file, and a single decision artifact per run.
 
 ```mermaid
@@ -166,6 +168,8 @@ Current expected report snapshot:
 - raw lift: `6.148`
 - CUPED lift: `5.913`
 - CUPED variance reduction: `0.5391`
+- minimum detectable effect: `1.0673`
+- observed power: `1.0`
 - recommendation: `ship_treatment`
 
 Local quality gates:
@@ -184,14 +188,15 @@ The current V1 supports:
 - raw treatment vs control lift estimation
 - CUPED adjustment using the pre-period metric
 - sequential evidence snapshots across the run
+- power analysis with minimum detectable effect estimation
 - decision-ready JSON output for stakeholder review
 
 ## Next Steps
 
 Realistic next follow-up work:
 
-1. add power analysis and minimum detectable effect estimation
-2. support guardrail metrics and segment breakdowns
-3. add false-positive controls for repeated sequential peeking
-4. connect the analysis path to a warehouse-backed input table
-5. produce a lightweight stakeholder HTML report on top of the JSON output
+1. support guardrail metrics and segment breakdowns
+2. add false-positive controls for repeated sequential peeking
+3. connect the analysis path to a warehouse-backed input table
+4. produce a lightweight stakeholder HTML report on top of the JSON output
+5. compare planned MDE against observed effect by launch tier or experiment class

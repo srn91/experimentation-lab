@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+from statistics import NormalDist
 
 from app.models import ExperimentRow, GroupStats
 
@@ -44,6 +45,10 @@ def _z_score(control: GroupStats, treatment: GroupStats) -> float:
 
 def _normal_cdf(value: float) -> float:
     return 0.5 * (1.0 + math.erf(value / math.sqrt(2.0)))
+
+
+def _normal_ppf(probability: float) -> float:
+    return NormalDist().inv_cdf(probability)
 
 
 def _two_sided_p_value(z_score: float) -> float:
@@ -108,7 +113,48 @@ def _sequential_snapshots(rows: list[ExperimentRow]) -> list[dict[str, float | i
     return snapshots
 
 
+def _minimum_detectable_effect(
+    control: GroupStats,
+    treatment: GroupStats,
+    *,
+    alpha: float,
+    target_power: float,
+) -> float:
+    standard_error = math.sqrt(
+        (control.variance / control.users) + (treatment.variance / treatment.users)
+    )
+    z_alpha = _normal_ppf(1.0 - (alpha / 2.0))
+    z_beta = _normal_ppf(target_power)
+    return (z_alpha + z_beta) * standard_error
+
+
+def _observed_power(effect: float, standard_error: float, *, alpha: float) -> float:
+    if standard_error == 0:
+        raise ValueError("standard error is zero; cannot compute observed power")
+    critical_value = _normal_ppf(1.0 - (alpha / 2.0))
+    non_centrality = abs(effect) / standard_error
+    return 1.0 - _normal_cdf(critical_value - non_centrality) + _normal_cdf(
+        -critical_value - non_centrality
+    )
+
+
+def _required_users_per_group(
+    *,
+    variance_sum: float,
+    effect: float,
+    alpha: float,
+    target_power: float,
+) -> int | None:
+    if effect == 0:
+        return None
+    z_alpha = _normal_ppf(1.0 - (alpha / 2.0))
+    z_beta = _normal_ppf(target_power)
+    return math.ceil((((z_alpha + z_beta) ** 2) * variance_sum) / (effect ** 2))
+
+
 def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
+    alpha = 0.05
+    target_power = 0.8
     raw_stats = _group_stats(rows, "outcome_metric")
     cuped_rows = _apply_cuped(rows)
     cuped_stats = _group_stats(cuped_rows, "outcome_metric")
@@ -119,9 +165,26 @@ def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
     cuped_p_value = _two_sided_p_value(cuped_z)
     raw_lift = raw_stats["treatment"].mean - raw_stats["control"].mean
     cuped_lift = cuped_stats["treatment"].mean - cuped_stats["control"].mean
+    cuped_standard_error = math.sqrt(
+        (cuped_stats["control"].variance / cuped_stats["control"].users)
+        + (cuped_stats["treatment"].variance / cuped_stats["treatment"].users)
+    )
     cuped_variance_reduction = 1.0 - (
         (cuped_stats["control"].variance + cuped_stats["treatment"].variance)
         / (raw_stats["control"].variance + raw_stats["treatment"].variance)
+    )
+    minimum_detectable_effect = _minimum_detectable_effect(
+        cuped_stats["control"],
+        cuped_stats["treatment"],
+        alpha=alpha,
+        target_power=target_power,
+    )
+    observed_power = _observed_power(cuped_lift, cuped_standard_error, alpha=alpha)
+    required_users_per_group = _required_users_per_group(
+        variance_sum=cuped_stats["control"].variance + cuped_stats["treatment"].variance,
+        effect=abs(cuped_lift),
+        alpha=alpha,
+        target_power=target_power,
     )
 
     recommendation = "ship_treatment" if cuped_p_value < 0.05 and cuped_lift > 0 else "hold"
@@ -134,6 +197,8 @@ def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
             "cuped_lift": round(cuped_lift, 4),
             "cuped_p_value": round(cuped_p_value, 6),
             "cuped_variance_reduction": round(cuped_variance_reduction, 4),
+            "minimum_detectable_effect": round(minimum_detectable_effect, 4),
+            "observed_power": round(observed_power, 4),
             "recommendation": recommendation,
         },
         "group_stats": {
@@ -145,6 +210,14 @@ def build_report(rows: list[ExperimentRow]) -> dict[str, object]:
                 "control_mean": round(cuped_stats["control"].mean, 4),
                 "treatment_mean": round(cuped_stats["treatment"].mean, 4),
             },
+        },
+        "power_analysis": {
+            "alpha": alpha,
+            "target_power": target_power,
+            "minimum_detectable_effect": round(minimum_detectable_effect, 4),
+            "observed_power": round(observed_power, 4),
+            "required_users_per_group_at_observed_effect": required_users_per_group,
+            "current_users_per_group": cuped_stats["control"].users,
         },
         "sequential_snapshots": _sequential_snapshots(rows),
     }
