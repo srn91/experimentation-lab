@@ -98,6 +98,39 @@ That produces:
 
 - `generated/decision_report.json`
 
+### Run the Read-Only Hosting Surface
+
+```bash
+make serve
+```
+
+The service listens on `PORT` when Render sets it, and falls back to `8000` locally. It exposes:
+
+- `GET /health`
+- `GET /report`
+- `GET /summary`
+
+If `generated/decision_report.json` already exists, the service serves that artifact directly. Otherwise it recomputes the report in memory from the deterministic simulator without mutating the repo.
+
+### Render Deploy Notes
+
+Render can deploy this repo as a Python web service with:
+
+- build command: `python3 -m pip install -r requirements.txt`
+- start command: `make serve`
+
+Before deployment, run `make report` once so the generated artifact exists in the repo snapshot. The live API is read-only and is meant to surface the existing experiment summary and full report for reviewers.
+
+Render deploys the latest pushed Git commit from `main`, so any local-only changes must be pushed before a new deploy can use them.
+
+After the service starts, smoke test it with:
+
+```bash
+curl http://127.0.0.1:${PORT:-8000}/health
+curl http://127.0.0.1:${PORT:-8000}/summary
+curl http://127.0.0.1:${PORT:-8000}/report
+```
+
 ### Run the Full Quality Gate
 
 ```bash
@@ -133,6 +166,7 @@ Local quality gates:
 - `make lint`
 - `make test`
 - `make report`
+- `make serve`
 - `make verify`
 
 ## Current Capabilities
