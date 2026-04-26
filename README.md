@@ -131,6 +131,13 @@ curl http://127.0.0.1:${PORT:-8000}/summary
 curl http://127.0.0.1:${PORT:-8000}/report
 ```
 
+## Hosted Deployment
+
+- Live URL: [experimentation-lab-4re2.onrender.com](https://experimentation-lab-4re2.onrender.com)
+- Open this first: [`/summary`](https://experimentation-lab-4re2.onrender.com/summary)
+- Browser smoke result: the hosted summary loaded in a real browser and returned the live user count, raw lift, CUPED lift, variance reduction, and `ship_treatment` recommendation.
+- Render config: branch `main`, auto-deploy on commit, runtime `python`, build command `python3 -m pip install -r requirements.txt`, start command `make serve`, health check path `/health`
+
 ### Run the Full Quality Gate
 
 ```bash
