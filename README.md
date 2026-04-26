@@ -16,6 +16,25 @@ The V1 implementation is intentionally lightweight and transparent:
 - sequential snapshots show how evidence changes at 25%, 50%, 75%, and 100% of the run
 - a CLI writes both the simulated assignment file and the decision report so the repo is reproducible without a notebook
 
+## Module Map
+
+This repo is easiest to understand when the code is read as a narrow decision pipeline:
+
+1. `app/simulation.py` creates the experiment rows and writes the assignment CSV.
+2. `app/analysis.py` computes lift, CUPED adjustment, sequential snapshots, and the final ship/hold recommendation.
+3. `app/models.py` defines the experiment record and aggregate statistics.
+4. `app/cli.py` exposes `simulate` and `report` entry points so the workflow can run from the terminal.
+
+## Experiment Tracking Strategy
+
+The tracking approach is deliberately file-based so the experiment state is reproducible without notebook cells or external services:
+
+- `app/config.py` holds the run parameters such as seed, output paths, and user count.
+- `generated/experiment_assignments.csv` is the raw simulated evidence trail.
+- `generated/decision_report.json` is the canonical experiment readout.
+- the sequential snapshots in the report preserve the progression from 25% to 100% of the sample.
+- any future warehouse integration should preserve the same contract: fixed seed or run id, immutable assignment file, and a single decision artifact per run.
+
 ```mermaid
 flowchart LR
     A["Deterministic simulator"] --> B["experiment_assignments.csv"]
@@ -93,6 +112,13 @@ The V1 repo currently verifies:
 - CUPED variance reduction over the raw outcome metric
 - a full sequential readout at 25%, 50%, 75%, and 100% of the experiment
 - a recommendation that only ships the treatment when the CUPED-adjusted signal is positive and statistically strong
+
+This is the operational story a reviewer should understand:
+
+- the experiment is reproducible because the simulator seed is fixed
+- the report is decision-oriented, not notebook-oriented
+- the sequential snapshots show how the recommendation changes as evidence accumulates
+- the tracking artifacts are explicit files that can be archived, diffed, and reviewed
 
 Current expected report snapshot:
 
