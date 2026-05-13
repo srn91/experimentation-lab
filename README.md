@@ -3,9 +3,9 @@
 A local-first experimentation decision lab that simulates A/B test assignments, quantifies treatment lift, applies CUPED for variance reduction, checks rollout guardrails, breaks results down by customer segment, and produces a decision-ready report.
 
 
-## Proof Snapshot
+## Results
 
-| Signal | Current evidence |
+| Area | Details |
 |---|---|
 | Experiment scale | Deterministic simulation covers `4,000` users with fixed-seed assignment generation. |
 | Treatment effect | Current report shows raw lift `6.148` and CUPED-adjusted lift `5.913`. |
@@ -13,7 +13,7 @@ A local-first experimentation decision lab that simulates A/B test assignments, 
 | Power and guardrails | Minimum detectable effect is `1.1099`, observed power is `1.0`, and guardrail status is `pass`. |
 | Decision output | The report recommends `ship_treatment` and preserves sequential snapshots at 25%, 50%, 75%, and 100%. |
 
-## What This Proves
+## Overview
 
 - Experimentation is framed as a decision system, not a notebook p-value.
 - The workflow combines lift, CUPED, power, guardrails, segment analysis, and sequential evidence in one reproducible report.
