@@ -33,6 +33,19 @@ def create_app() -> FastAPI:
             "report_path": str(REPORT_JSON),
         }
 
+    @app.get("/")
+    def index() -> dict[str, object]:
+        return {
+            "project": SERVICE_NAME,
+            "status": "ready",
+            "endpoints": {
+                "health": "/health",
+                "summary": "/summary",
+                "report": "/report",
+                "docs": "/docs",
+            },
+        }
+
     @app.get("/report")
     def report() -> dict[str, object]:
         payload = _load_report()
