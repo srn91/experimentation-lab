@@ -212,7 +212,7 @@ Local quality gates:
 - `make serve`
 - `make verify`
 
-## Current Capabilities
+## Capabilities
 
 The current implementation supports:
 
