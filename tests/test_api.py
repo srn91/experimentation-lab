@@ -14,9 +14,9 @@ def test_health_report_summary_endpoints() -> None:
 
     index = client.get("/")
     assert index.status_code == 200
-    index_payload = index.json()
-    assert index_payload["project"] == "experimentation-lab"
-    assert index_payload["endpoints"]["summary"] == "/summary"
+    assert "text/html" in index.headers["content-type"]
+    assert "Experimentation Lab" in index.text
+    assert "/summary" in index.text
 
     health = client.get("/health")
     assert health.status_code == 200
